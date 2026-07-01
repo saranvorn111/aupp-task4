@@ -76,7 +76,7 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
 
-                    dir("${TF_DIR}") {
+                   dir('NodeAPI/terraform') {
 
                         sh '''
                              pwd
@@ -98,13 +98,12 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
 
-                    dir("${TF_DIR}") {
+                    dir('NodeAPI/terraform') {
 
                         sh '''
                             pwd
                             ls -la
                             find . -name "*.tf"
-                            cd /home/ubuntu/aupp-task4/NodeAPI/terraform
                             terraform plan -out=tfplan
                         '''
 
@@ -121,7 +120,7 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
 
-                    dir("${TF_DIR}") {
+                    dir('NodeAPI/terraform') {
 
                         sh '''
                             terraform apply -auto-approve tfplan
