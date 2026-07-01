@@ -82,24 +82,24 @@ pipeline {
             }
         }
 
-        // stage('Terraform Plan') {
-        //     steps {
-        //         withCredentials([
-        //             string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-        //             string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
-        //         ]) {
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
 
-        //             dir("${TF_DIR}") {
+                    dir("${TF_DIR}") {
 
-        //                 sh '''
-        //                     terraform plan -out=tfplan
-        //                 '''
+                        sh '''
+                            terraform plan -out=tfplan
+                        '''
 
-        //             }
+                    }
 
-        //         }
-        //     }
-        // }
+                }
+            }
+        }
 
         stage('Terraform Apply') {
             steps {
