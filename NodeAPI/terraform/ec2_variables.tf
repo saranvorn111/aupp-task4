@@ -1,8 +1,19 @@
+resource "tls_private_key" "ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "deployer" {
+  key_name   = "mykeypair"
+  public_key = tls_private_key.ssh_key.public_key_openssh
+}
+
 resource "aws_instance" "web_server" {
 
   ami           = "ami-0ec10929233384c7f"
   instance_type = var.instance_type
-  key_name      = var.key_name
+
+  key_name = aws_key_pair.deployer.key_name
 
   vpc_security_group_ids = [
     aws_security_group.web_sg.id
@@ -23,7 +34,6 @@ resource "aws_instance" "web_server" {
 resource "aws_security_group" "web_sg" {
 
   name_prefix = "web-sg-"
-
   description = "Security group for NodeJS"
 
   ingress {
