@@ -57,7 +57,7 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                         sh '''
-
+                            pwd
                             tree
                             pwd
                             terraform init
