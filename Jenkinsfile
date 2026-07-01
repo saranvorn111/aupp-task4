@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        APP_DIR = "aupp-task4/NodeAPI"
+        APP_DIR = "aupp-task4/NodeAPI/terraform"
         TF_DIR = "aupp-task4/terraform"
 
         IMAGE_NAME = "nodeapi"
