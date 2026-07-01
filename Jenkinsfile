@@ -18,7 +18,7 @@ pipeline {
                 checkout scm
                  sh '''
                     echo "===== Checkout Source Code ====="
-                    pwd
+                    tree
                     ls -la
                     echo "================================"
                 '''
@@ -34,7 +34,7 @@ pipeline {
                     docker --version
                     terraform version
                     aws --version
-
+                    tree --version
                     echo "=================================="
                 '''
             }
