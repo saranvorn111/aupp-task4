@@ -3,7 +3,6 @@ pipeline {
     agent any
 
     environment {
-
         APP_DIR = "NodeAPI"
         TF_DIR  = "NodeAPI/terraform"
 
@@ -15,225 +14,119 @@ pipeline {
 
     stages {
 
-        stage('Stage 1 - Checkout Source') {
-
+        stage('Checkout Source') {
             steps {
-
                 checkout scm
 
                 sh '''
-                    echo "========== CHECKOUT =========="
+                    echo "===== SOURCE ====="
                     pwd
                     ls -la
-                    tree -L 2
                 '''
-
             }
-
         }
 
-        stage('Stage 2 - Verify Tools') {
-
+        stage('Verify Tools') {
             steps {
-
                 sh '''
-                    echo "========== VERIFY TOOLS =========="
-
+                    echo "===== TOOLS ====="
                     git --version
                     docker --version
                     terraform version
                     aws --version
-
-                    echo "================================="
                 '''
-
             }
-
         }
 
-        stage('Stage 3 - Terraform Init') {
-
+        stage('AWS Identity Check') {
             steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    sh '''
+                        echo "===== AWS IDENTITY ====="
+                        aws sts get-caller-identity
+                    '''
+                }
+            }
+        }
 
-                withCredentials([
-                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
-                ]) {
-
+        stage('Terraform Init & Apply') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                     dir("${TF_DIR}") {
-
                         sh '''
+                            echo "===== TERRAFORM INIT ====="
                             terraform init
-                        '''
 
-                    }
-
-                }
-
-            }
-
-        }
-
-        stage('Stage 4 - Terraform Validate') {
-
-            steps {
-
-                withCredentials([
-                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
-                ]) {
-
-                    dir("${TF_DIR}") {
-
-                        sh '''
+                            echo "===== TERRAFORM VALIDATE ====="
                             terraform validate
-                        '''
 
-                    }
-
-                }
-
-            }
-
-        }
-
-        stage('Stage 5 - Terraform Plan') {
-
-            steps {
-
-                withCredentials([
-                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
-                ]) {
-
-                    dir("${TF_DIR}") {
-
-                        sh '''
+                            echo "===== TERRAFORM PLAN ====="
                             terraform plan -out=tfplan
-                        '''
 
-                    }
-
-                }
-
-            }
-
-        }
-
-        stage('Stage 6 - Terraform Apply') {
-
-            steps {
-
-                withCredentials([
-                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
-                ]) {
-
-                    dir("${TF_DIR}") {
-
-                        sh '''
+                            echo "===== TERRAFORM APPLY ====="
                             terraform apply -auto-approve tfplan
                         '''
-
                     }
-
                 }
-
             }
-
         }
 
-        stage('Stage 7 - Get EC2 Public IP') {
-
+        stage('Get EC2 Public IP') {
             steps {
-
                 script {
-
                     env.EC2_IP = sh(
                         script: "cd ${TF_DIR} && terraform output -raw public_ip",
                         returnStdout: true
                     ).trim()
 
-                    echo "================================="
-                    echo "EC2 IP : ${env.EC2_IP}"
-                    echo "================================="
-
+                    echo "EC2 IP: ${env.EC2_IP}"
                 }
-
             }
-
         }
 
-        stage('Stage 8 - Wait For EC2') {
-
+        stage('Wait for EC2') {
             steps {
-
-                echo "Waiting for EC2..."
-
                 sleep(time: 60, unit: 'SECONDS')
-
             }
-
         }
 
-        stage('Stage 9 - Copy Application') {
-
+        stage('Deploy Application to EC2') {
             steps {
-
                 withCredentials([
-
                     sshUserPrivateKey(
                         credentialsId: 'ec2-ssh',
                         keyFileVariable: 'SSH_KEY',
                         usernameVariable: 'SSH_USER'
                     )
-
                 ]) {
 
                     sh """
+                        ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${SSH_USER}@${EC2_IP} '
+                            mkdir -p ~/app
+                        '
 
-                        ssh -i ${SSH_KEY} \
-                        -o StrictHostKeyChecking=no \
-                        ${SSH_USER}@${EC2_IP} \
-                        "mkdir -p ~/app"
-
-                        scp -i ${SSH_KEY} \
-                        -o StrictHostKeyChecking=no \
-                        -r ${APP_DIR}/* \
-                        ${SSH_USER}@${EC2_IP}:~/app/
-
+                        scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r ${APP_DIR}/* \
+                            ${SSH_USER}@${EC2_IP}:~/app/
                     """
-
                 }
-
             }
-
         }
 
-        stage('Stage 10 - Build & Run Docker') {
-
+        stage('Build & Run Docker on EC2') {
             steps {
-
                 withCredentials([
-
                     sshUserPrivateKey(
                         credentialsId: 'ec2-ssh',
                         keyFileVariable: 'SSH_KEY',
                         usernameVariable: 'SSH_USER'
                     )
-
                 ]) {
 
                     sh """
-
-                        ssh -i ${SSH_KEY} \
-                        -o StrictHostKeyChecking=no \
-                        ${SSH_USER}@${EC2_IP} '
-
+                        ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${SSH_USER}@${EC2_IP} '
                             cd ~/app
 
                             sudo docker stop nodeapi || true
-
                             sudo docker rm nodeapi || true
 
                             sudo docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
@@ -242,67 +135,37 @@ pipeline {
                                 --name nodeapi \
                                 -p 5000:5000 \
                                 ${IMAGE_NAME}:${IMAGE_TAG}
-
                         '
-
                     """
-
                 }
-
             }
-
         }
 
-        stage('Stage 11 - Health Check') {
-
+        stage('Health Check') {
             steps {
-
                 sh """
-
-                    echo "==================================="
-
-                    echo "Application URL"
-
-                    echo "http://${EC2_IP}:5000"
-
-                    echo "==================================="
+                    echo "=========================="
+                    echo "App URL: http://${EC2_IP}:5000"
+                    echo "=========================="
 
                     curl --fail http://${EC2_IP}:5000 || true
-
                 """
-
             }
-
         }
-
     }
 
     post {
-
         success {
-
-            echo "================================="
             echo "PIPELINE SUCCESS"
-            echo "Application URL:"
-            echo "http://${EC2_IP}:5000"
-            echo "================================="
-
+            echo "APP: http://${EC2_IP}:5000"
         }
 
         failure {
-
-            echo "================================="
             echo "PIPELINE FAILED"
-            echo "================================="
-
         }
 
         always {
-
             cleanWs()
-
         }
-
     }
-
 }
