@@ -1,5 +1,11 @@
-#### .gitignore
-
 node_modules/
 .env
 dist/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+terraform.tfvars
+NodeAPI/terraform/provider.tf
