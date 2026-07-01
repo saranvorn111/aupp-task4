@@ -1,18 +1,12 @@
-# main.tf is just a convention, not a requirement. 
-# Terraform merges all .tf files in the directory into a single 
-# configuration before planning and applying.
+resource "aws_instance" "web_server" {
 
-# EC2 Instance
-resource "aws_instance" "webserver1" {
-  ami                    = "ami-0ec10929233384c7f"
-  instance_type          = var.instance_type
-  key_name               = aws_key_pair.ec2_key.key_name
+  ami           = "ami-0ec10929233384c7f"
+  instance_type = var.instance_type
+  key_name      = var.key_name
 
   vpc_security_group_ids = [
-    aws_security_group.terraform-web-sg.id
+    aws_security_group.web_sg.id
   ]
-
-  user_data = file("${path.module}/userdata.sh")
 
   root_block_device {
     volume_size           = 8
@@ -22,13 +16,15 @@ resource "aws_instance" "webserver1" {
   }
 
   tags = {
-    Name = "Terraform-EC2"
+    Name = "StaticWebsiteServer"
   }
-
 }
-resource "aws_security_group" "terraform-web-sg" {
 
-  name = "terraform-web-sg-01"
+resource "aws_security_group" "web_sg" {
+
+  name_prefix = "web-sg-"
+
+  description = "Security group for NodeJS"
 
   ingress {
     from_port   = 22
@@ -52,18 +48,6 @@ resource "aws_security_group" "terraform-web-sg" {
   }
 
   tags = {
-    Name = "Terraform-Web-SG"
+    Name = "web-sg"
   }
-
- 
 }
-
-resource "tls_private_key" "ec2_key"{
-  algorithm = "RSA"
-  rsa_bits = 4096
-}
-
-resource "aws_key_pair" "ec2_key" {
-  key_name = "Terraform-Web-SG"
-  public_key = tls_private_key.ec2_key.public_key_openssh
- }
