@@ -109,7 +109,7 @@ pipeline {
                     dir("${TF_DIR}") {
 
                         sh '''
-                            terraform plan -out=tfplan
+                            terraform plan
                         '''
 
                     }
