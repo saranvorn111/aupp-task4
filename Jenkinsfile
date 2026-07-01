@@ -92,6 +92,9 @@ pipeline {
                     dir("${TF_DIR}") {
 
                         sh '''
+                            pwd
+                            ls -la
+                            find . -name "*.tf"
                             terraform plan -out=tfplan
                         '''
 
