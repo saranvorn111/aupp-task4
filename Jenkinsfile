@@ -57,7 +57,7 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                         sh '''
-                            cd /home/ubuntu/aupp-task4/NodeAPI/terraform
+                            tree
                             terraform init
                         '''
                 }
