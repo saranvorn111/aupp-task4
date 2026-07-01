@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_DIR = "aupp-task4/NodeAPI"
-        TF_DIR = "terraform"
+        TF_DIR = "aupp-task4/terraform"
 
         IMAGE_NAME = "nodeapi"
         IMAGE_TAG  = "latest"
@@ -73,6 +73,9 @@ pipeline {
                     dir("${TF_DIR}") {
 
                         sh '''
+                             pwd
+                            ls -la
+                            find . -name "*.tf"
                             terraform validate
                         '''
 
