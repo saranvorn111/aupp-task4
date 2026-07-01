@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_DIR = "aupp-task4/NodeAPI"
-        TF_DIR = "aupp-task4/terraform"
+        TF_DIR = "terraform"
 
         IMAGE_NAME = "nodeapi"
         IMAGE_TAG  = "latest"
