@@ -2,90 +2,218 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "YOUR_DOCKER_USERNAME/nodeapi"
-        IMAGE_TAG = "latest"
+        APP_DIR = "aupp-task4"
+        TF_DIR = "aupp-task4/terraform"
 
-        TF_DIR = "terraform"
+        IMAGE_NAME = "nodeApi"
+        IMAGE_TAG  = "latest"
+
+        AWS_DEFAULT_REGION = "us-east-1"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Source') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Verify Tools') {
             steps {
-                dir('NodeAPI') {
-                    sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
-                }
+                sh '''
+                    echo "===== Verify Installed Tools ====="
+
+                    git --version
+                    docker --version
+                    terraform version
+                    aws --version
+
+                    echo "=================================="
+                '''
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Build Docker Image') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )
-                ]) {
-
-                    sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
-                    docker push $IMAGE_NAME:$IMAGE_TAG
-                    '''
+                dir("${APP_DIR}") {
+                    sh """
+                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                    """
                 }
             }
         }
 
         stage('Terraform Init') {
             steps {
-                dir("$TF_DIR") {
-                    sh 'terraform init'
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform init
+                        '''
+
+                    }
+
+                }
+            }
+        }
+
+        stage('Terraform Validate') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform validate
+                        '''
+
+                    }
+
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform plan -out=tfplan
+                        '''
+
+                    }
+
                 }
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                dir("$TF_DIR") {
-                    sh 'terraform apply -auto-approve'
+               withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+
+                    dir("${TF_DIR}") {
+
+                        sh '''
+                            terraform apply -auto-approve tfplan
+                        '''
+
+                    }
+
                 }
             }
         }
 
-        stage('Deploy') {
-
+        stage('Get EC2 Public IP') {
             steps {
-
                 script {
 
-                    def ip = sh(
-                        script: "cd terraform && terraform output -raw public_ip",
+                    env.EC2_IP = sh(
+                        script: "cd ${TF_DIR} && terraform output -raw public_ip",
                         returnStdout: true
                     ).trim()
 
-                    sh """
-                    ssh -o StrictHostKeyChecking=no ubuntu@${ip} '
-                        docker pull ${IMAGE_NAME}:${IMAGE_TAG}
+                    echo "=================================="
+                    echo "EC2 Public IP: ${env.EC2_IP}"
+                    echo "=================================="
 
-                        docker stop nodeapi || true
-                        docker rm nodeapi || true
-
-                        docker run -d \
-                            --name nodeapi \
-                            -p 5000:5000 \
-                            ${IMAGE_NAME}:${IMAGE_TAG}
-                    '
-                    """
                 }
+            }
+        }
+
+        stage('Wait for EC2') {
+            steps {
+                echo "Waiting 60 seconds for EC2 startup..."
+                sleep(time: 60, unit: 'SECONDS')
+            }
+        }
+
+        
+    
+            stage('Deploy Application') {
+                steps {
+                    withCredentials([
+                        sshUserPrivateKey(
+                            credentialsId: 'ec2-ssh',
+                            keyFileVariable: 'SSH_KEY',
+                            usernameVariable: 'SSH_USER'
+                        )
+                    ]) {
+                        sh """
+                            scp -i ${SSH_KEY} -o StrictHostKeyChecking=no -r ${APP_DIR}/* ${SSH_USER}@${EC2_IP}:~/app/
+
+                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${SSH_USER}@${EC2_IP} '
+                                sudo apt update
+                                sudo apt install -y docker.io
+                                sudo systemctl enable docker
+                                sudo systemctl start docker
+
+                                cd ~/app
+                                sudo docker build -t nodeApi .
+                                sudo docker rm -f nodeApi || true
+                                sudo docker run -d --name nodeApi -p 5000:5000 nodeApi
+                            '
+                        """
+                    }
+                }
+            }
+
+        stage('Health Check') {
+            steps {
+
+                sh """
+                    echo "=================================="
+                    echo "Application URL"
+                    echo "http://${EC2_IP}:5000"
+                    echo "=================================="
+
+                    curl --connect-timeout 5 http://${EC2_IP}:5000 || true
+                """
 
             }
+        }
+
+    }
+
+    post {
+
+        success {
+
+            echo "======================================"
+            echo "PIPELINE SUCCESS"
+            echo "Application URL:"
+            echo "http://${EC2_IP}:5000"
+            echo "======================================"
+
+        }
+
+        failure {
+
+            echo "======================================"
+            echo "PIPELINE FAILED"
+            echo "======================================"
+
+        }
+
+        always {
+
+            cleanWs()
 
         }
 
