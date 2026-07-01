@@ -59,6 +59,7 @@ pipeline {
                         sh '''
 
                             tree
+                            pwd
                             terraform init
                         '''
                 }
