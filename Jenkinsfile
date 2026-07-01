@@ -5,7 +5,7 @@ pipeline {
         APP_DIR = "aupp-task4"
         TF_DIR = "aupp-task4/terraform"
 
-        IMAGE_NAME = "nodeApi"
+        IMAGE_NAME = "nodeapi"
         IMAGE_TAG  = "latest"
 
         AWS_DEFAULT_REGION = "us-east-1"
@@ -165,9 +165,9 @@ pipeline {
                                 sudo systemctl start docker
 
                                 cd ~/app
-                                sudo docker build -t nodeApi .
-                                sudo docker rm -f nodeApi || true
-                                sudo docker run -d --name nodeApi -p 5000:5000 nodeApi
+                                sudo docker build -t nodeapi .
+                                sudo docker rm -f nodeapi || true
+                                sudo docker run -d --name nodeapi -p 5000:5000 nodeapi
                             '
                         """
                     }
