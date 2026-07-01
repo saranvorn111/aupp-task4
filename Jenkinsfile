@@ -34,15 +34,15 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                dir("${APP_DIR}") {
-                    sh """
-                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                    """
-                }
-            }
-        }
+        // stage('Build Docker Image') {
+        //     steps {
+        //         dir("${APP_DIR}") {
+        //             sh """
+        //                 docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+        //             """
+        //         }
+        //     }
+        // }
 
         stage('Terraform Init') {
             steps {
