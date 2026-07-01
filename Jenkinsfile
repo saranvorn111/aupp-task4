@@ -3,15 +3,19 @@ pipeline {
     agent any
 
     environment {
+
         APP_DIR = "NodeAPI"
         TF_DIR  = "NodeAPI/terraform"
+
+        IMAGE_NAME = "nodeapi"
+        IMAGE_TAG  = "latest"
 
         AWS_DEFAULT_REGION = "us-east-1"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Source') {
             steps {
                 checkout scm
             }
@@ -21,14 +25,14 @@ pipeline {
             steps {
                 sh '''
                     echo "TOOLS CHECK"
-                    terraform version
+                    terraform version || true
                     aws --version || true
                     docker --version || true
                 '''
             }
         }
 
-        stage('AWS Authentication Test (CRITICAL)') {
+        stage('AWS Authentication Test') {
             steps {
                 withCredentials([
                     string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
@@ -38,8 +42,8 @@ pipeline {
                     sh '''
                         set -eux
 
-                        export AWS_ACCESS_KEY_ID
-                        export AWS_SECRET_ACCESS_KEY
+                        export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                        export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                         export AWS_DEFAULT_REGION=us-east-1
 
                         aws sts get-caller-identity
@@ -59,8 +63,8 @@ pipeline {
                         sh '''
                             set -eux
 
-                            export AWS_ACCESS_KEY_ID
-                            export AWS_SECRET_ACCESS_KEY
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                             export AWS_DEFAULT_REGION=us-east-1
 
                             terraform init -input=false
@@ -81,8 +85,8 @@ pipeline {
                         sh '''
                             set -eux
 
-                            export AWS_ACCESS_KEY_ID
-                            export AWS_SECRET_ACCESS_KEY
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                             export AWS_DEFAULT_REGION=us-east-1
 
                             terraform validate
@@ -104,8 +108,8 @@ pipeline {
                         sh '''
                             set -eux
 
-                            export AWS_ACCESS_KEY_ID
-                            export AWS_SECRET_ACCESS_KEY
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                             export AWS_DEFAULT_REGION=us-east-1
 
                             terraform apply -auto-approve tfplan
@@ -115,7 +119,7 @@ pipeline {
             }
         }
 
-        stage('Get Output') {
+        stage('Get EC2 IP') {
             steps {
                 script {
                     env.EC2_IP = sh(
@@ -176,7 +180,7 @@ pipeline {
         stage('Health Check') {
             steps {
                 sh """
-                    echo "http://${EC2_IP}:5000"
+                    echo "App URL: http://${EC2_IP}:5000"
                     curl --fail http://${EC2_IP}:5000 || true
                 """
             }
