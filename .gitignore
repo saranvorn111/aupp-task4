@@ -8,4 +8,4 @@ dist/
 *.tfstate.*
 .terraform.lock.hcl
 terraform.tfvars
-NodeAPI/terraform/provider.tf
+NodeAPI/terraform/
