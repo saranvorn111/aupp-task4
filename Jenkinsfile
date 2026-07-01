@@ -16,6 +16,12 @@ pipeline {
         stage('Checkout Source') {
             steps {
                 checkout scm
+                 sh '''
+                    echo "===== Checkout Source Code ====="
+                    pwd
+                    ls -la
+                    echo "================================"
+                '''
             }
         }
 
