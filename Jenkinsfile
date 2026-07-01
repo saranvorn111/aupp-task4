@@ -56,11 +56,15 @@ pipeline {
                     string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
+                    dir("NodeAPI/terraform") {
+
                         sh '''
+
                             tree
                             terraform init
                         '''
-                }
+
+                    }
             }
         }
 
@@ -71,13 +75,12 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
 
-                    dir("${TF_DIR}") {
+                    dir("NodeAPI/terraform") {
 
                         sh '''
                              pwd
                             ls -la
                             find . -name "*.tf"
-                            cd /home/ubuntu/aupp-task4/NodeAPI/terraform
                             terraform validate
                         '''
 
